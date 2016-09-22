@@ -55,11 +55,11 @@ class DDMCServer:
     				data = self.clientsocket.recv(16)
     				if len(data) == 0:
     					self.resetClient()
-					self.motorController.direction[self.motorController.LEFT] = struct.unpack('i', data[0:4])[0]
-					self.motorController.mPowers[self.motorController.LEFT] = struct.unpack('i', data[4:8])[0]
-					rightDirTemp = struct.unpack('i', data[8:12])[0]
-					self.motorController.direction[self.motorController.RIGHT] = 0 if rightDirTemp == 1 else 1
-					self.motorController.mPowers[self.motorController.RIGHT] = struct.unpack('i', data[12:16])[0]
+				self.motorController.direction[self.motorController.LEFT] = struct.unpack('i', data[0:4])[0]
+				self.motorController.mPowers[self.motorController.LEFT] = struct.unpack('i', data[4:8])[0]
+				rightDirTemp = struct.unpack('i', data[8:12])[0]
+				self.motorController.direction[self.motorController.RIGHT] = 0 if rightDirTemp == 1 else 1
+				self.motorController.mPowers[self.motorController.RIGHT] = struct.unpack('i', data[12:16])[0]
 			except Exception as msg:
 				if "Errno 104" in msg:
 					self.resetClient()	
