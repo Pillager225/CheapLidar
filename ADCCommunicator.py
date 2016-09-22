@@ -14,8 +14,8 @@ class ADCCommunicator:
         PIN_IO  = 5
         PIN_CS  = 3
 
-        def init(self):
-                GPIO.setmode(GPIO.BCM)
+        def __init__(self):
+                GPIO.setmode(GPIO.BOARD)
                 # set up the SPI interface pins
                 GPIO.setup(self.PIN_CLK, GPIO.OUT)
                 GPIO.setup(self.PIN_CS,  GPIO.OUT, initial=GPIO.HIGH)

@@ -20,7 +20,7 @@ class MotorController:
 	pwmStarted = [False, False]
 	freq = 60#Hertz
 	maxDC = 100
-	minDC = 10
+	minDC = 25
 	mPowers = [0, 0]
 	direction = [0, 0]	# forward or backward
 

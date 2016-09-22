@@ -42,8 +42,8 @@ class DDMCServer:
 	    	print "DDMC controller disconnected!"
 	    	self.motorController.mPowers[self.motorController.LEFT] = 0;
 	    	self.motorController.mPowers[self.motorController.LEFT] = 0;
-	    	if(self.clientSocket != None):
-	    		self.clientSocket.close()
+	    	if(self.clientsocket != None):
+	    		self.clientsocket.close()
     		self.clientsocket = None
     		if waitForReconnect:
     			self.waitForConnection()
