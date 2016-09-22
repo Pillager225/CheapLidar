@@ -40,8 +40,8 @@ class DDMCServer:
 
 	def resetClient(self, waitForReconnect = True):
 	    	print "DDMC controller disconnected!"
-	    	motorController.mPowers[self.motorController.LEFT] = 0;
-	    	motorController.mPowers[self.motorController.LEFT] = 0;
+	    	self.motorController.mPowers[self.motorController.LEFT] = 0;
+	    	self.motorController.mPowers[self.motorController.LEFT] = 0;
 	    	if(self.clientSocket != None):
 	    		self.clientSocket.close()
     		self.clientsocket = None
