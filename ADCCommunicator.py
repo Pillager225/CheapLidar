@@ -10,9 +10,9 @@ import os
 import RPi.GPIO as GPIO
 
 class ADCCommunicator:
-        PIN_CLK = 18
-        PIN_IO  = 22
-        PIN_CS  = 17
+        PIN_CLK = 7
+        PIN_IO  = 5
+        PIN_CS  = 3
 
         def init(self):
                 GPIO.setmode(GPIO.BCM)
