@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# This file was created by Ryan Cooper in 2016
+# This file was created by Ryan Cooper in 2016 for a Raspberry Pi
 # This class controls the motors for the robot which are configured as 
 # a differential drive
 import RPi.GPIO as GPIO
@@ -12,6 +12,7 @@ class MotorController:
 	RIGHT = 1
 
 	pwmPin = [38, 37]
+	# assuming you're using a L298n and a rpi
 	dirPin = [[31,32], [35,33]]
 
 	pwmObj = [None, None]
@@ -54,7 +55,6 @@ class MotorController:
 
 	def clampToRange(self, x, lower, upper):
 		if x < lower:
-
 			return lower
 		elif x > upper:
 			return upper
