@@ -68,7 +68,7 @@ class DDMCServer:
 	    	self.closeConnections()
 
 	def closeConnections(self):
-			self.resetClient(False)
+		self.resetClient(False)
 	    	if self.serversocket:
     			self.serversocket.close()
 
