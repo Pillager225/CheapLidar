@@ -27,9 +27,8 @@ class MotorController(Process):
 	minDC = 25
 	mPowers = [0, 0]
 	direction = [0, 0]	# forward or backward
-	# lastQueue is time.time() of when the last time the queue was consumed
+	# set by time.time(), used to stop bot when dced
 	lastQueue = 0
-
 	go = True
 	# only consumes the queue
 	encQueue = None
@@ -51,7 +50,6 @@ class MotorController(Process):
 
 	def setupPins(self):
 		GPIO.setmode(GPIO.BOARD)
-		GPIO.setwarnings(False)
 		for i in range(0, 2):
 			GPIO.setup(self.pwmPin[i], GPIO.OUT)
 			for j in range(0, 2):
@@ -81,8 +79,7 @@ class MotorController(Process):
 		else:
 			return x
 
-	# 0 <= power <= 255
-	def setDCByPower(self, power):
+	def setDC(self):
 		for i in range(0 ,2):
 			self.setDirections()
 		for i in range(0, 2):
@@ -91,9 +88,9 @@ class MotorController(Process):
 				self.pwmStarted[i] = False
 			else:
 				if self.pwmStarted[i]:
-					self.pwmObj[i].ChangeDutyCycle(self.clampToRange(self.transform(power[i], 0, 255, self.minDC, self.maxDC), self.minDC, self.maxDC))
+					self.pwmObj[i].ChangeDutyCycle(self.mPowers[i])
 				else:
-					self.pwmObj[i].start(self.clampToRange(self.transform(power[i], 0, 255, self.minDC, self.maxDC), self.minDC, self.maxDC))
+					self.pwmObj[i].start(self.mPowers[i])
 					self.pwmStarted[i] = True
 
 	# maps x which is in the range of in_min to in_max to x's corresponding
@@ -108,17 +105,7 @@ class MotorController(Process):
 				self.pwmObj[i].ChangeDutyCycle(0)
 				self.pwmObj[i].stop()
 		GPIO.cleanup()
-
-	def printMotorStuff(self):
-		sys.stdout.write("Ldir: ")
-		sys.stdout.write(str(self.direction[self.LEFT]))
-		sys.stdout.write(" LPower: ")
-		sys.stdout.write(str(self.mPowers[self.LEFT]))
-		sys.stdout.write(" Rdir: ")
-		sys.stdout.write(str(self.direction[self.RIGHT]))
-		sys.stdout.write(" RPower: ")
-		sys.stdout.write(str(self.mPowers[self.RIGHT]))
-		sys.stdout.write("\n")
+		self.go = False
 
 	def handleQueues(self):
 		if time.time()-self.lastQueue > .5 and self.controllerQueue.empty():
@@ -134,19 +121,24 @@ class MotorController(Process):
 				except Queue.Empty as msg:
 					good = False
 				if good:
-					if data[0] == -1: # recieved motor level commands
-						if data[1]:
-							self.direction[self.LEFT] = data[1]
-						if data[2]:
-							self.mPowers[self.LEFT] = data[2]
-						if data[3]:
-							self.direction[self.RIGHT] = data[3]
-						if data[4]:
-							self.mPowers[self.RIGHT] = data[4]
-					elif data[0] == 1: # recieved joystick information (throttle, steering)
+					if data[0] == 1: # recieved motor level commands
+						mL = data[1]
+						mR = data[2]
+						if mL > 1500:
+							self.direction[self.LEFT] = 1
+							self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 2000, 0, 100), minDC, maxDC)
+						else:
+							self.direction[self.LEFT] = 0
+							self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 1000, 0, 100), minDC, maxDC)
+						if mR > 1500:
+							self.direction[self.RIGHT] = 0
+							self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 2000, 0, 100), minDC, maxDC)
+						else :
+							self.direction[self.RIGHT] = 1
+							self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 1000, 0, 100), minDC, maxDC)
+					elif data[0] == 2: # recieved joystick information (throttle, steering)
 						pass
-					self.printMotorStuff()
-					self.lastQueue = time.time()
+				self.lastQueue = time.time()
 
 	def checkIfShouldStop(self):
 		if self.pipe.poll():
@@ -159,16 +151,13 @@ class MotorController(Process):
 		self.go = True
 		try:
 			while self.go:
+			#	print self.mPowers
+			#	print self.direction
 				self.handleQueues()
-				self.setDCByPower(self.mPowers)
+				self.setDC()
 				#TODO handle queue info which has encoder stuff in it
 				self.checkIfShouldStop()
 				time.sleep(.01)
 			self.endGracefully()
 		except Exception as msg:
-			print "MotorController"
 			print msg
-
-if __name__ == '__main__':
-	mc = MotorController()
-	mc.setDCByPower([0, 0])
