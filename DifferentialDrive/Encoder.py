@@ -14,7 +14,7 @@ class Encoder(Process):
 	go = True
 
 	def __init__(self, *args, **kwargs):
-		super(Process, self).__init__(*args, **kwargs)
+		super(Encoder, self).__init__()
 		for key in kwargs:
 			if key == 'queue':
 				self.driverQueue = kwargs[key]
@@ -26,13 +26,13 @@ class Encoder(Process):
 		GPIO.setup(self.pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
 	def checkIfShouldStop(self):
-		if self.pipe.poll()
+		if self.pipe.poll():
 			data = self.pipe.recv()
 			if 'stop' in data:
 				self.go = False
 				self.pipe.close()
 
-	def run():
+	def run(self):
 		self.go = True
 		while self.go:
 			starttime = time.clock()

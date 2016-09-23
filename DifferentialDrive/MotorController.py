@@ -7,6 +7,10 @@ import RPi.GPIO as GPIO
 import time
 import sys
 
+from multiprocessing import Process
+from multiprocessing import Queue
+from multiprocessing import Pipe
+
 class MotorController(Process):
 	LEFT = 0
 	RIGHT = 1
@@ -32,7 +36,7 @@ class MotorController(Process):
 	pipe = None
 
 	def __init__(self, *args, **kwargs):
-		super(Process, self).__init__(*args, **kwargs)
+		super(MotorController, self).__init__()
 		for key in kwargs:
 			if key == 'encQueue':
 				self.encQueue = kwargs[key]
@@ -104,22 +108,27 @@ class MotorController(Process):
 		self.go = False
 
 	def handleQueues(self):
-		while not self.controller_queue.empty():
-			data = self.controller_queue.get()
-			if data[0] = 0: # recieved motor level commands
-				if data[1]:
-					self.direction[self.LEFT] = data[0]
-				if data[2]:
-					self.mPowers[self.LEFT] = data[1]
-				if data[3]:
-					self.direcion[self.RIGHT] = data[2]
-				if data[4]:
-					self.mPowers[self.RIGHT] = data[3]
-			elif data[0] = 1: # recieved joystick information (throttle, steering)
-				pass
+		while not self.controllerQueue.empty():
+			good = True
+			try:
+				data = self.controllerQueue.get_nowait()
+			except Queue.Empty as msg:
+				good = False
+			if good:
+				if data[0] == 0: # recieved motor level commands
+					if data[1]:
+						self.direction[self.LEFT] = data[0]
+					if data[2]:
+						self.mPowers[self.LEFT] = data[1]
+					if data[3]:
+						self.direction[self.RIGHT] = data[2]
+					if data[4]:
+						self.mPowers[self.RIGHT] = data[3]
+				elif data[0] == 1: # recieved joystick information (throttle, steering)
+					pass
 
 	def checkIfShouldStop(self):
-		if self.pipe.poll()
+		if self.pipe.poll():
 			data = self.pipe.recv()
 			if 'stop' in data:
 				self.go = False

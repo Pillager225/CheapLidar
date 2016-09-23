@@ -20,7 +20,8 @@ class DDStarter:
 	# class that controls motors
 	motorController = None
 	controlServer = None
-	encoders = None
+	Lencoder = None
+	Rencoder = None
 	ePipeLeft = None
 	ePipeRight = None
 	motorPipe = None
@@ -41,15 +42,16 @@ class DDStarter:
 		self.ePipeRight, eRight = Pipe()
 		self.motorPipe, m = Pipe() 
 		self.controllerPipe , c = Pipe()
-		driverQueue = Queue()
+		encQueue = Queue()
 		controllerQueue = Queue()
 		self.motorController = MotorController(encQueue=encQueue, controllerQueue=controllerQueue, pipe=m)
-		self.controlServer = DDMCServer(controllerQueue=controllerQueue, pipe=c)
-		self.encoders = [Encoder(queue=encQueue, pin=11, pipe=eLeft), Encoder(queue=driverQueue, pin=12, pipe=eRight)]
+		self.controlServer = DDMCServer(queue=controllerQueue, pipe=c)
+		self.Lencoder = Encoder(queue=encQueue, pin=11, pipe=eLeft)
+		self.Rencoder = Encoder(queue=encQueue, pin=12, pipe=eRight)
 
 	def startProcesses(self):
-		for i in range(len(encoders)):
-			encoders[i].start()
+		self.Lencoder.start()
+		self.Rencoder.start()
 		self.motorController.start()
 		self.controlServer.start()
 
@@ -71,8 +73,8 @@ class DDStarter:
 			sys.stdout.flush()
 			self.motorController.join()
 			self.controlServer.join()
-			self.encoders[0].join()
-			self.encoders[1].join()
+			self.Lencoders.join()
+			self.Rencoders.join()
 			print "Done"
 			sys.exit(0)
 		except Exception as msg:

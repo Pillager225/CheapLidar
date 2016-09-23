@@ -9,6 +9,7 @@ import time
 import struct
 import sys
 
+from multiprocessing import Process
 from multiprocessing import Queue
 from multiprocessing import Pipe
 
@@ -23,13 +24,14 @@ class DDMCServer(Process):
 	go = True
 
 	def __init__(self, *args, **kwargs):
-		super(Process, self).__init__(*args, **kwargs)
+		super(DDMCServer, self).__init__()
 		for key in kwargs:
 			if key == 'queue':
 				self.driverQueue = kwargs[key]
 			elif key == 'pipe':
 				self.pipe = kwargs[key]
 		self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.serversocket.bind(('', 12345))
 		self.serversocket.listen(1)
 		print "DDMC server started"
@@ -60,20 +62,20 @@ class DDMCServer(Process):
     		if waitForReconnect:
     			self.waitForConnection()
 
-    def handleData(self):
-    	data = self.clientsocket.recv(20)
+    	def handleData(self):
+    		data = self.clientsocket.recv(20)
 		if len(data) == 0:
 			self.resetClient()
 		else:
-			driverQueue.put([
-				struct.unpack('i', data[0:4])[0], 					# left motor dir
-				struct.unpack('i', data[4:8])[0], 					# left motor power
-				struct.unpack('i', data[8:12])[0],
-				0 if struct.unpack('i', data[12:16])[0] == 1 else 1, # right motor dir
-				struct.unpack('i', data[16:20])[0]]) 				# right motor power
+			self.driverQueue.put([
+				struct.unpack('i', data[0:4])[0], # control scheme
+				struct.unpack('i', data[4:8])[0], # left motor dir
+				struct.unpack('i', data[8:12])[0], # left motor power
+			0 if struct.unpack('i', data[12:16])[0] == 1 else 1, # right motor dir
+				struct.unpack('i', data[16:20])[0]]) 	# right motor power
 
 	def checkIfShouldStop(self):
-		if self.pipe.poll()
+		if self.pipe.poll():
 			data = self.pipe.recv()
 			if 'stop' in data:
 				self.go = False
@@ -87,12 +89,12 @@ class DDMCServer(Process):
 				self.handleData()
 				self.checkIfShouldStop()
 				time.sleep(.01)
-		except Exception as msg:
-			if "Errno 104" in msg:
-				self.resetClient()	
-			else:
-				print msg
-    	self.closeConnections()
+			except Exception as msg:
+				if "Errno 104" in msg:
+					self.resetClient()	
+				else:
+					print msg
+    		self.closeConnections()
 
 	def closeConnections(self):
 		self.resetClient(False)
