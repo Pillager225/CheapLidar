@@ -27,6 +27,8 @@ class MotorController(Process):
 	minDC = 25
 	mPowers = [0, 0]
 	direction = [0, 0]	# forward or backward
+	# lastQueue is time.time() of when the last time the queue was consumed
+	lastQueue = 0
 
 	go = True
 	# only consumes the queue
@@ -49,6 +51,7 @@ class MotorController(Process):
 
 	def setupPins(self):
 		GPIO.setmode(GPIO.BOARD)
+		GPIO.setwarnings(False)
 		for i in range(0, 2):
 			GPIO.setup(self.pwmPin[i], GPIO.OUT)
 			for j in range(0, 2):
@@ -105,27 +108,45 @@ class MotorController(Process):
 				self.pwmObj[i].ChangeDutyCycle(0)
 				self.pwmObj[i].stop()
 		GPIO.cleanup()
-		self.go = False
+
+	def printMotorStuff(self):
+		sys.stdout.write("Ldir: ")
+		sys.stdout.write(str(self.direction[self.LEFT]))
+		sys.stdout.write(" LPower: ")
+		sys.stdout.write(str(self.mPowers[self.LEFT]))
+		sys.stdout.write(" Rdir: ")
+		sys.stdout.write(str(self.direction[self.RIGHT]))
+		sys.stdout.write(" RPower: ")
+		sys.stdout.write(str(self.mPowers[self.RIGHT]))
+		sys.stdout.write("\n")
 
 	def handleQueues(self):
-		while not self.controllerQueue.empty():
-			good = True
-			try:
-				data = self.controllerQueue.get_nowait()
-			except Queue.Empty as msg:
-				good = False
-			if good:
-				if data[0] == 0: # recieved motor level commands
-					if data[1]:
-						self.direction[self.LEFT] = data[0]
-					if data[2]:
-						self.mPowers[self.LEFT] = data[1]
-					if data[3]:
-						self.direction[self.RIGHT] = data[2]
-					if data[4]:
-						self.mPowers[self.RIGHT] = data[3]
-				elif data[0] == 1: # recieved joystick information (throttle, steering)
-					pass
+		if time.time()-self.lastQueue > .5 and self.controllerQueue.empty():
+			self.direction = [0, 0]
+			self.mPowers = [0, 0]
+			self.lastQueue = time.time()
+			print "powers reset"
+		else:
+			while not self.controllerQueue.empty():
+				good = True
+				try:
+					data = self.controllerQueue.get_nowait()
+				except Queue.Empty as msg:
+					good = False
+				if good:
+					if data[0] == -1: # recieved motor level commands
+						if data[1]:
+							self.direction[self.LEFT] = data[1]
+						if data[2]:
+							self.mPowers[self.LEFT] = data[2]
+						if data[3]:
+							self.direction[self.RIGHT] = data[3]
+						if data[4]:
+							self.mPowers[self.RIGHT] = data[4]
+					elif data[0] == 1: # recieved joystick information (throttle, steering)
+						pass
+					self.printMotorStuff()
+					self.lastQueue = time.time()
 
 	def checkIfShouldStop(self):
 		if self.pipe.poll():
@@ -138,8 +159,6 @@ class MotorController(Process):
 		self.go = True
 		try:
 			while self.go:
-			#	print self.mPowers
-			#	print self.direction
 				self.handleQueues()
 				self.setDCByPower(self.mPowers)
 				#TODO handle queue info which has encoder stuff in it
@@ -147,4 +166,9 @@ class MotorController(Process):
 				time.sleep(.01)
 			self.endGracefully()
 		except Exception as msg:
+			print "MotorController"
 			print msg
+
+if __name__ == '__main__':
+	mc = MotorController()
+	mc.setDCByPower([0, 0])

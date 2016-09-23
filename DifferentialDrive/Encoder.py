@@ -35,14 +35,14 @@ class Encoder(Process):
 	def run(self):
 		self.go = True
 		while self.go:
-			starttime = time.clock()
+			starttime = time.time()
 			val = GPIO.wait_for_edge(self.pin, GPIO.BOTH, timeout=500)
 			if val is None:		#Stall occured
 				#TODO handle stall
 				self.count = 0
 			else:
 				self.count += 1
-			self.driverQueue.put([self.pin ,self.count, starttime-time.clock()])
+			self.driverQueue.put([self.pin ,self.count, time.time()-starttime])
 			self.checkIfShouldStop()
 		GPIO.cleanup()
 

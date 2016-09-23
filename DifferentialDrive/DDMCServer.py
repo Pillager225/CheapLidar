@@ -62,22 +62,33 @@ class DDMCServer(Process):
     			self.waitForConnection()
 
     	def handleData(self):
-			try:
+		try:
     			data = self.clientsocket.recv(20)
 			if len(data) == 0:
 				self.resetClient()
 			else:
+				leftDir = struct.unpack('i', data[4:8])[0], # left motor dir
+				leftDir = 0 if leftDir[0] == -1 else leftDir[0]
+				leftPower = struct.unpack('i', data[8:12])[0], # left motor power
+				leftPower = 0 if leftPower[0] == -1 else leftPower[0]
+				rightDir = struct.unpack('i', data[12:16])[0]
+				rightDir = 0 if rightDir == -1 else rightDir
+				rightDir = 0 if rightDir == 1 else 1, # right motor dir
+				rightPower = struct.unpack('i', data[16:20])[0] 	# right motor power
+				rightPower = 0 if rightPower == -1 else rightPower
 				self.driverQueue.put([
 					struct.unpack('i', data[0:4])[0], # control scheme
-					struct.unpack('i', data[4:8])[0], # left motor dir
-					struct.unpack('i', data[8:12])[0], # left motor power
-					0 if struct.unpack('i', data[12:16])[0] == 1 else 1, # right motor dir
-					struct.unpack('i', data[16:20])[0]]) 	# right motor power
-			except Exception as msg:
-				if "Errno 104" in msg:
-					self.resetClient()
-				else:
-					print msg
+					leftDir,
+					leftPower,
+					rightDir[0],
+					rightPower])
+					
+		except Exception as msg:
+			if "Errno 104" in msg:
+				self.resetClient()
+			else:
+				print "DDMCServer"
+				print msg
 
 	def checkIfShouldStop(self):
 		if self.pipe.poll():
