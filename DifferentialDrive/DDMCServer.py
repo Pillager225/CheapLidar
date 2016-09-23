@@ -54,8 +54,7 @@ class DDMCServer(Process):
 
 	def resetClient(self, waitForReconnect = True):
 	    	print "DDMC controller disconnected!"
-	    	self.motorController.mPowers[self.motorController.LEFT] = 0;
-	    	self.motorController.mPowers[self.motorController.LEFT] = 0;
+	    	self.driverQueue.put([0,0,0,0,0])
 	    	if(self.clientsocket != None):
 	    		self.clientsocket.close()
     		self.clientsocket = None
@@ -63,16 +62,22 @@ class DDMCServer(Process):
     			self.waitForConnection()
 
     	def handleData(self):
-    		data = self.clientsocket.recv(20)
-		if len(data) == 0:
-			self.resetClient()
-		else:
-			self.driverQueue.put([
-				struct.unpack('i', data[0:4])[0], # control scheme
-				struct.unpack('i', data[4:8])[0], # left motor dir
-				struct.unpack('i', data[8:12])[0], # left motor power
-			0 if struct.unpack('i', data[12:16])[0] == 1 else 1, # right motor dir
-				struct.unpack('i', data[16:20])[0]]) 	# right motor power
+			try:
+    			data = self.clientsocket.recv(20)
+			if len(data) == 0:
+				self.resetClient()
+			else:
+				self.driverQueue.put([
+					struct.unpack('i', data[0:4])[0], # control scheme
+					struct.unpack('i', data[4:8])[0], # left motor dir
+					struct.unpack('i', data[8:12])[0], # left motor power
+					0 if struct.unpack('i', data[12:16])[0] == 1 else 1, # right motor dir
+					struct.unpack('i', data[16:20])[0]]) 	# right motor power
+			except Exception as msg:
+				if "Errno 104" in msg:
+					self.resetClient()
+				else:
+					print msg
 
 	def checkIfShouldStop(self):
 		if self.pipe.poll():
@@ -85,15 +90,9 @@ class DDMCServer(Process):
 		self.go = True
 		self.waitForConnection()
 		while self.go:
-			try:
-				self.handleData()
-				self.checkIfShouldStop()
-				time.sleep(.01)
-			except Exception as msg:
-				if "Errno 104" in msg:
-					self.resetClient()	
-				else:
-					print msg
+			self.handleData()
+			self.checkIfShouldStop()
+			time.sleep(.01)
     		self.closeConnections()
 
 	def closeConnections(self):
