@@ -9,19 +9,27 @@ import time
 import thread
 import signal
 import sys
+from multiprocessing import Pipe
+from multiprocessing import Queue
 
 from MotorController import MotorController
 from DDMCServer import DDMCServer
+from Encoder import Encoder
 
 class DDStarter:
 	# class that controls motors
 	motorController = None
 	controlServer = None
+	encoders = None
+	ePipeLeft = None
+	ePipeRight = None
+	motor_pipe = None
 
 	def __init__(self):
 		self.makeClasses()
 		self.shareClasses()
 		self.startThreads()
+		self.startProcesses()
 		# Catch SIGINT from ctrl-c when run interactively.
 		signal.signal(signal.SIGINT, self.signal_handler)
 		# Catch SIGTERM from kill when running as a daemon.
@@ -30,8 +38,13 @@ class DDStarter:
 		signal.pause()
 
 	def makeClasses(self):
-		self.motorController = MotorController()
+		self.ePipeLeft, eLeft = Pipe() 
+		self.ePipeRight, eRight = Pipe()
+		self.motor_pipe, m = Pipe() 
+		driverQueue = Queue()
+		self.motorController = MotorController(queue=driverQueue, pipe=m)
 		self.controlServer = DDMCServer()
+		self.encoders = [Encoder(queue=driverQueue, pin=11, pipe=eLeft), Encoder(queue=driverQueue, pin=12, pipe=eRight)]
 
 	def shareClasses(self):
 		self.controlServer.motorController = self.motorController
@@ -41,6 +54,10 @@ class DDStarter:
 		thread.start_new_thread(self.motorController.main, ())
 		thread.start_new_thread(self.controlServer.main, ())
 		
+	def startProcesses(self):
+		for i in range(len(encoders)):
+			encoders[i].start()
+
 	def signal_handler(self, signal, frame):
 		self.exitGracefully()
 
@@ -48,12 +65,18 @@ class DDStarter:
 		try:
 			print "Program was asked to terminate."
 			if self.motorController:
-				self.motorController.go = False	
+				self.motor_pipe.send('stop')	
 			if self.controlServer:
 				self.controlServer.go = False
+			if self.encoders[0]:
+				self.ePipeLeft.send('stop')
+			if self.encoders[1]:
+				self.ePipeRight.send('stop')
 			sys.stdout.write("Waiting for threads to exit...")
 			sys.stdout.flush()
-			time.sleep(1)
+			self.motorController.join()
+			self.encoders[0].join()
+			self.encoders[1].join()
 			print "Done"
 			sys.exit(0)
 		except Exception as msg:

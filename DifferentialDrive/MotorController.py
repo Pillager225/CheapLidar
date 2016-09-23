@@ -7,7 +7,7 @@ import RPi.GPIO as GPIO
 import time
 import sys
 
-class MotorController:
+class MotorController(Process):
 	LEFT = 0
 	RIGHT = 1
 
@@ -25,8 +25,18 @@ class MotorController:
 	direction = [0, 0]	# forward or backward
 
 	go = True
+	# only consumes the queue
+	queue = None
+	# used to shut the process down
+	pipe = None
 
-	def __init__(self):
+	def __init__(self, *args, **kwargs):
+		super(Process, self).__init__(*args, **kwargs)
+		for key in kwargs:
+			if key == 'queue':
+				self.queue = kwargs[key]
+			elif key == 'pipe':
+				self.pipe = kwargs[key]
 		self.setupPins()
 		self.initializePWM()
 
@@ -88,6 +98,7 @@ class MotorController:
 				self.pwmObj[i].ChangeDutyCycle(0)
 				self.pwmObj[i].stop()
 		GPIO.cleanup()
+		self.go = False
 
 	def main(self):
 		try:
@@ -95,6 +106,11 @@ class MotorController:
 			#	print self.mPowers
 			#	print self.direction
 				self.setDCByPower(self.mPowers)
+				#TODO handle queue info which has encoder stuff in it
+				if self.pipe.poll():
+					data = self.pipe.recv()
+					if 'stop' in data:
+						self.go = False
 				time.sleep(.1)
 			self.endGracefully()
 		except Exception as msg:
