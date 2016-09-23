@@ -11,6 +11,7 @@ import signal
 import sys
 from multiprocessing import Pipe
 from multiprocessing import Queue
+from multiprocessing import Manager
 
 from MotorController import MotorController
 from DDMCServer import DDMCServer
@@ -18,6 +19,7 @@ from Encoder import Encoder
 
 class DDStarter:
 	# class that controls motors
+	manager = None
 	motorController = None
 	controlServer = None
 	Lencoder = None
@@ -38,12 +40,13 @@ class DDStarter:
 		signal.pause()
 
 	def makeClasses(self):
+		manager = Manager()
 		self.ePipeLeft, eLeft = Pipe() 
 		self.ePipeRight, eRight = Pipe()
 		self.motorPipe, m = Pipe() 
 		self.controllerPipe , c = Pipe()
-		encQueue = Queue()
-		controllerQueue = Queue()
+		encQueue = manager.Queue()
+		controllerQueue = manager.Queue()
 		self.motorController = MotorController(encQueue=encQueue, controllerQueue=controllerQueue, pipe=m)
 		self.controlServer = DDMCServer(queue=controllerQueue, pipe=c)
 		self.Lencoder = Encoder(queue=encQueue, pin=11, pipe=eLeft)
