@@ -1,4 +1,5 @@
 import RPi.GPIO as GPIO
+import time
 from multiprocessing import Process
 from multiprocessing import Queue
 #pin should be 11 or 12 #GPIO17,GPIO18
@@ -24,21 +25,25 @@ class Encoder(Process):
 		GPIO.setmode(GPIO.BOARD)
 		GPIO.setup(self.pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
+	def checkIfShouldStop(self):
+		if self.pipe.poll()
+			data = self.pipe.recv()
+			if 'stop' in data:
+				self.go = False
+				self.pipe.close()
+
 	def run():
 		self.go = True
 		while self.go:
+			starttime = time.clock()
 			val = GPIO.wait_for_edge(self.pin, GPIO.BOTH, timeout=500)
-			if val is None:
-				#Stall occured
+			if val is None:		#Stall occured
 				#TODO handle stall
 				self.count = 0
 			else:
 				self.count += 1
-			self.driverQueue.put([self.pin ,self.count])
-			if self.pipe.poll():
-				data = self.pipe.recv()
-				if 'stop' in data:
-					self.go = False
+			self.driverQueue.put([self.pin ,self.count, starttime-time.clock()])
+			self.checkIfShouldStop()
 		GPIO.cleanup()
 
 if __name__ == '__main__':

@@ -26,17 +26,20 @@ class MotorController(Process):
 
 	go = True
 	# only consumes the queue
-	queue = None
+	encQueue = None
+	controllerQueue = None
 	# used to shut the process down
 	pipe = None
 
 	def __init__(self, *args, **kwargs):
 		super(Process, self).__init__(*args, **kwargs)
 		for key in kwargs:
-			if key == 'queue':
-				self.queue = kwargs[key]
+			if key == 'encQueue':
+				self.encQueue = kwargs[key]
 			elif key == 'pipe':
 				self.pipe = kwargs[key]
+			elif key == 'controllerQueue':
+				self.controllerQueue = kwargs[key]
 		self.setupPins()
 		self.initializePWM()
 
@@ -100,18 +103,39 @@ class MotorController(Process):
 		GPIO.cleanup()
 		self.go = False
 
-	def main(self):
+	def handleQueues(self):
+		while not self.controller_queue.empty():
+			data = self.controller_queue.get()
+			if data[0] = 0: # recieved motor level commands
+				if data[1]:
+					self.direction[self.LEFT] = data[0]
+				if data[2]:
+					self.mPowers[self.LEFT] = data[1]
+				if data[3]:
+					self.direcion[self.RIGHT] = data[2]
+				if data[4]:
+					self.mPowers[self.RIGHT] = data[3]
+			elif data[0] = 1: # recieved joystick information (throttle, steering)
+				pass
+
+	def checkIfShouldStop(self):
+		if self.pipe.poll()
+			data = self.pipe.recv()
+			if 'stop' in data:
+				self.go = False
+				self.pipe.close()
+
+	def run(self):
+		self.go = True
 		try:
 			while self.go:
 			#	print self.mPowers
 			#	print self.direction
+				self.handleQueues()
 				self.setDCByPower(self.mPowers)
 				#TODO handle queue info which has encoder stuff in it
-				if self.pipe.poll():
-					data = self.pipe.recv()
-					if 'stop' in data:
-						self.go = False
-				time.sleep(.1)
+				self.checkIfShouldStop()
+				time.sleep(.01)
 			self.endGracefully()
 		except Exception as msg:
 			print msg

@@ -23,12 +23,11 @@ class DDStarter:
 	encoders = None
 	ePipeLeft = None
 	ePipeRight = None
-	motor_pipe = None
+	motorPipe = None
+	controllerPipe = None
 
 	def __init__(self):
 		self.makeClasses()
-		self.shareClasses()
-		self.startThreads()
 		self.startProcesses()
 		# Catch SIGINT from ctrl-c when run interactively.
 		signal.signal(signal.SIGINT, self.signal_handler)
@@ -40,23 +39,19 @@ class DDStarter:
 	def makeClasses(self):
 		self.ePipeLeft, eLeft = Pipe() 
 		self.ePipeRight, eRight = Pipe()
-		self.motor_pipe, m = Pipe() 
+		self.motorPipe, m = Pipe() 
+		self.controllerPipe , c = Pipe()
 		driverQueue = Queue()
-		self.motorController = MotorController(queue=driverQueue, pipe=m)
-		self.controlServer = DDMCServer()
-		self.encoders = [Encoder(queue=driverQueue, pin=11, pipe=eLeft), Encoder(queue=driverQueue, pin=12, pipe=eRight)]
+		controllerQueue = Queue()
+		self.motorController = MotorController(encQueue=encQueue, controllerQueue=controllerQueue, pipe=m)
+		self.controlServer = DDMCServer(controllerQueue=controllerQueue, pipe=c)
+		self.encoders = [Encoder(queue=encQueue, pin=11, pipe=eLeft), Encoder(queue=driverQueue, pin=12, pipe=eRight)]
 
-	def shareClasses(self):
-		self.controlServer.motorController = self.motorController
-		self.controlServer.starter = self
-
-	def startThreads(self):
-		thread.start_new_thread(self.motorController.main, ())
-		thread.start_new_thread(self.controlServer.main, ())
-		
 	def startProcesses(self):
 		for i in range(len(encoders)):
 			encoders[i].start()
+		self.motorController.start()
+		self.controlServer.start()
 
 	def signal_handler(self, signal, frame):
 		self.exitGracefully()
@@ -65,9 +60,9 @@ class DDStarter:
 		try:
 			print "Program was asked to terminate."
 			if self.motorController:
-				self.motor_pipe.send('stop')	
+				self.motorPipe.send('stop')	
 			if self.controlServer:
-				self.controlServer.go = False
+				self.controlServer.send('stop')
 			if self.encoders[0]:
 				self.ePipeLeft.send('stop')
 			if self.encoders[1]:
@@ -75,6 +70,7 @@ class DDStarter:
 			sys.stdout.write("Waiting for threads to exit...")
 			sys.stdout.flush()
 			self.motorController.join()
+			self.controlServer.join()
 			self.encoders[0].join()
 			self.encoders[1].join()
 			print "Done"

@@ -9,14 +9,26 @@ import time
 import struct
 import sys
 
-class DDMCServer:
+from multiprocessing import Queue
+from multiprocessing import Pipe
+
+class DDMCServer(Process):
 	serversocket = None 
 	clientsocket = None
 	motorController = None			# This should be set by RoboSunia.shareClasses()
-	starter = None					# This shoudl be set by RoboSunia.shareClasses()
+	# sends motor control signals to motor controller
+	driverQueue = None
+	# sused to shut the process down
+	pipe = None
 	go = True
 
-	def __init__(self):
+	def __init__(self, *args, **kwargs):
+		super(Process, self).__init__(*args, **kwargs)
+		for key in kwargs:
+			if key == 'queue':
+				self.driverQueue = kwargs[key]
+			elif key == 'pipe':
+				self.pipe = kwargs[key]
 		self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.serversocket.bind(('', 12345))
 		self.serversocket.listen(1)
@@ -48,24 +60,39 @@ class DDMCServer:
     		if waitForReconnect:
     			self.waitForConnection()
 
-    	def main(self):
-    		self.waitForConnection()
-    		while self.go:
-    			try:
-    				data = self.clientsocket.recv(16)
-    				if len(data) == 0:
-    					self.resetClient()
-				self.motorController.direction[self.motorController.LEFT] = struct.unpack('i', data[0:4])[0]
-				self.motorController.mPowers[self.motorController.LEFT] = struct.unpack('i', data[4:8])[0]
-				rightDirTemp = struct.unpack('i', data[8:12])[0]
-				self.motorController.direction[self.motorController.RIGHT] = 0 if rightDirTemp == 1 else 1
-				self.motorController.mPowers[self.motorController.RIGHT] = struct.unpack('i', data[12:16])[0]
-			except Exception as msg:
-				if "Errno 104" in msg:
-					self.resetClient()	
-				else:
-					print msg
-	    	self.closeConnections()
+    def handleData(self):
+    	data = self.clientsocket.recv(20)
+		if len(data) == 0:
+			self.resetClient()
+		else:
+			driverQueue.put([
+				struct.unpack('i', data[0:4])[0], 					# left motor dir
+				struct.unpack('i', data[4:8])[0], 					# left motor power
+				struct.unpack('i', data[8:12])[0],
+				0 if struct.unpack('i', data[12:16])[0] == 1 else 1, # right motor dir
+				struct.unpack('i', data[16:20])[0]]) 				# right motor power
+
+	def checkIfShouldStop(self):
+		if self.pipe.poll()
+			data = self.pipe.recv()
+			if 'stop' in data:
+				self.go = False
+				self.pipe.close()
+
+	def run(self):
+		self.go = True
+		self.waitForConnection()
+		while self.go:
+			try:
+				self.handleData()
+				self.checkIfShouldStop()
+				time.sleep(.01)
+		except Exception as msg:
+			if "Errno 104" in msg:
+				self.resetClient()	
+			else:
+				print msg
+    	self.closeConnections()
 
 	def closeConnections(self):
 		self.resetClient(False)
