@@ -37,33 +37,33 @@ class DDMCServer(Process):
 		print "DDMC server started"
 
 	def waitForConnection(self):
-        	if self.clientsocket == None:
-            		connected = False
-            	while not connected:
-                	try:
-                    	    sys.stdout.write('Waiting for DDMCClient connection... ')
-	                    sys.stdout.flush()
-        	            (self.clientsocket, address) = self.serversocket.accept()
-                	    connected = True
-	                    print 'DDMC controller connected'
-        	        except Exception as msg:
-                	    print 'Client connection failed with message:'
-	                    print msg
-        	            print 'I will retry connecting in one second.'
-                	    time.sleep(1)
+		if self.clientsocket == None:
+			connected = False
+			while not connected:
+				try:
+					sys.stdout.write('Waiting for DDMCClient connection... ')
+					sys.stdout.flush()
+					(self.clientsocket, address) = self.serversocket.accept()
+					connected = True
+					print 'DDMC controller connected'
+				except Exception as msg:
+					print 'Client connection failed with message:'
+					print msg
+					print 'I will retry connecting in one second.'
+					time.sleep(1)
 
 	def resetClient(self, waitForReconnect = True):
-	    	print "DDMC controller disconnected!"
-	    	self.driverQueue.put([1,1500,1500])
-	    	if(self.clientsocket != None):
-	    		self.clientsocket.close()
-    		self.clientsocket = None
-    		if waitForReconnect:
-    			self.waitForConnection()
+		print "DDMC controller disconnected!"
+		self.driverQueue.put([1,1500,1500])
+		if(self.clientsocket != None):
+			self.clientsocket.close()
+		self.clientsocket = None
+		if waitForReconnect:
+			self.waitForConnection()
 
-    	def handleData(self):
+	def handleData(self):
 		try:
-    			data = self.clientsocket.recv(12)
+			data = self.clientsocket.recv(12)
 			if len(data) == 0:
 				self.resetClient()
 			else:
@@ -90,10 +90,10 @@ class DDMCServer(Process):
 			self.handleData()
 			self.checkIfShouldStop()
 			time.sleep(.01)
-    		self.closeConnections()
+    	self.closeConnections()
 
 	def closeConnections(self):
 		self.resetClient(False)
-	    	if self.serversocket:
-    			self.serversocket.close()
+		if self.serversocket:
+			self.serversocket.close()
 

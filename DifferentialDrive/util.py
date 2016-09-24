@@ -11,4 +11,4 @@ def clampToRange(x, lower, upper):
 # maps x which is in the range of in_min to in_max to x's corresponding
 # value between out_min and out_max
 def transform(x, in_min, in_max, out_min, out_max):
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min

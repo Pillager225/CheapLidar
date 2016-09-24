@@ -110,7 +110,6 @@ class MotorController(Process):
 		L = t
 		R = t
 		end = 1500
-		print throttle
 		if throttle < 0:
 			if steering < 0:
 				L += sm
@@ -129,9 +128,6 @@ class MotorController(Process):
 			end = 1000
 		mL = util.transform(util.clampToRange(L, 0, 255), 0, 255, 1500, end)
 		mR = util.transform(util.clampToRange(R, 0, 255), 0, 255, 1500, end)
-		sys.stdout.write(str(mL))
-		sys.stdout.write(" ")
-		print mR
 		self.changeMotorVals(mL, mR)
 
 	# this function will consume the controllerQueue, which was filled by DDMCServer
