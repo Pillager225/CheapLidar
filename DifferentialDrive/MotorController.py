@@ -157,7 +157,7 @@ class MotorController(Process):
 					if data[0] == 1 or data[0] == 3: # recieved motor level commands
 						mL = data[1]
 						mR = data[2]
-						self.changeMotorVals()
+						self.changeMotorVals(mL, mR)
 					elif data[0] == 2: # recieved joystick information (throttle, steering)
 						self.steeringThrottle(data)# this calls changeMotorVals()
 				self.lastQueue = time.time()

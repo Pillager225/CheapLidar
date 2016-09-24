@@ -1,6 +1,6 @@
 # utility functions
 
-def clampToRange(self, x, lower, upper):
+def clampToRange(x, lower, upper):
 		if x < lower:
 			return lower
 		elif x > upper:
@@ -10,5 +10,5 @@ def clampToRange(self, x, lower, upper):
 
 # maps x which is in the range of in_min to in_max to x's corresponding
 # value between out_min and out_max
-def transform(self, x, in_min, in_max, out_min, out_max):
+def transform(x, in_min, in_max, out_min, out_max):
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
