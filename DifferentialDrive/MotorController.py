@@ -98,11 +98,8 @@ class MotorController(Process):
 		self.go = False
 
 	def steeringThrottle(self, data):
-		steering = data[1]
-		throttle = data[2]
-		sys.stdout.write(str(steering))
-		sys.stdout.write(" ")
-		sys.stdout.write(str(throttle))
+		steering = util.transform(data[1], -1 , 1, 1000, 2000)
+		throttle = util.transform(data[2], -1, 1, 1000, 2000)
 		maxSm = 35
 		maxSp = 220
 		maxMove = 220
