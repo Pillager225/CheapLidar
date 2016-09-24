@@ -127,15 +127,18 @@ class MotorController(Process):
 						mL = data[1]
 						mR = data[2]
 					elif data[0] == 2: # recieved joystick information (throttle, steering)
-						steering = data[1]
-						throttle = data[2]
+						steering = self.transform(data[1], 1000, 2000, -1.0, 1.0)
+						throttle = self.transform(data[2], 1000, 2000, -1.0, 1.0)
+						sys.stdout.write(str(steering))
+						sys.stdout.write(" ")
+						print throttle
 						maxSm = 35
 						maxSp = 220
 						maxMove = 220
 						minMove = 0
 						sm = self.transform(abs(steering), 0, 1, 0, maxSm)
 						sp = self.transform(abs(steering), 0, 1, 0, maxSp)
-						t = self.transform(abs(throttle), 0, 1, self.minMove, self.maxMove)
+						t = self.transform(abs(throttle), 0, 1, minMove, maxMove)
 						L = t
 						R = t
 						end = 1500
@@ -154,7 +157,7 @@ class MotorController(Process):
 							else:
 								L += sm
 								R -= sp
-							end = 1500
+							end = 1000
 						mL = self.transform(self.clampToRange(L, 0, 255), 0, 255, 1500, end)
 						mR = self.transform(self.clampToRange(R, 0, 255), 0, 255, 1500, end)
 					self.driveMotors(mL, mR)
@@ -198,4 +201,5 @@ class MotorController(Process):
 				time.sleep(.01)
 			self.exitGracefully()
 		except Exception as msg:
+			print "MotorController"
 			print msg
