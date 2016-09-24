@@ -11,6 +11,8 @@ from multiprocessing import Process
 from multiprocessing import Queue
 from multiprocessing import Pipe
 
+import util
+
 class MotorController(Process):
 	LEFT = 0
 	RIGHT = 1
@@ -72,14 +74,7 @@ class MotorController(Process):
 				GPIO.output(self.dirPin[i][0], GPIO.LOW)
 				GPIO.output(self.dirPin[i][1], GPIO.HIGH)
 
-	def clampToRange(self, x, lower, upper):
-		if x < lower:
-			return lower
-		elif x > upper:
-			return upper
-		else:
-			return x
-
+	# set PWM duty cycle
 	def setDC(self):
 		for i in range(0 ,2):
 			self.setDirections()
@@ -94,12 +89,6 @@ class MotorController(Process):
 					self.pwmObj[i].start(self.mPowers[i])
 					self.pwmStarted[i] = True
 
-	# maps x which is in the range of in_min to in_max to x's corresponding
-        # value between out_min and out_max
-        def transform(self, x, in_min, in_max, out_min, out_max):
-            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
-
-
 	def exitGracefully(self):
 		for i in range(0, 2):
 			if self.pwmObj[i]:
@@ -108,17 +97,59 @@ class MotorController(Process):
 		GPIO.cleanup()
 		self.go = False
 
-	def handleQueues(self):
+	def steeringThrottle(self, data):
+		steering = data[1]
+		throttle = data[2]
+		maxSm = 35
+		maxSp = 220
+		maxMove = 220
+		minMove = 0
+		sm = transform(abs(steering), 0, 1, 0, maxSm)
+		sp = transform(abs(steering), 0, 1, 0, maxSp)
+		t = transform(abs(throttle), 0, 1, self.minMove, self.maxMove)
+		L = t
+		R = t
+		end = 1500
+		if throttle < 0:
+			if steering < 0:
+				L += sm
+				R -= sp
+			else:
+				L -= sp
+				R += sm
+			end = 2000
+		else:
+			if steering < 0:
+				L -= sp
+				R += sm
+			else:
+				L += sm
+				R -= sp
+			end = 1000
+		mL = transform(clampToRange(L, 0, 255), 0, 255, 1500, end)
+		mR = transform(clampToRange(R, 0, 255), 0, 255, 1500, end)
+		self.changeMotorVals(mL, mR)
+
+	# this function will consume the controllerQueue, which was filled by DDMCServer
+	# and will change the motors powers and directions according to what was in the queue
+	# it also will monitor that the bot is still receiving commands, and if it isn't, it will stop the bot
+	def handleControllerQueue(self):
+		# if there hasn't been anything in the queue in half a second
 		if time.time()-self.lastQueue > .5 and self.controllerQueue.empty():
+			# stop the bot
 			self.direction = [0, 0]
 			self.mPowers = [0, 0]
 			self.lastQueue = time.time()
 		else:
-			while not self.controllerQueue.empty():
+			while not self.controllerQueue.empty(): # this is a while so that the most recent thing in the queue is the resultant command that is done
 				good = True
 				try:
+					# nowait because this process was called from the main loop which controls the motors
+					# so we don't want this function to block.
 					data = self.controllerQueue.get_nowait()
-				except Queue.Empty as msg:
+				except Queue.Empty as msg: 
+					# realistically this should never happen because we check to see that the queue is not empty
+					# but it is shared memory, and who knows?
 					good = False
 				if good:
 					mL = 1500
@@ -126,61 +157,49 @@ class MotorController(Process):
 					if data[0] == 1 or data[0] == 3: # recieved motor level commands
 						mL = data[1]
 						mR = data[2]
+						self.changeMotorVals()
 					elif data[0] == 2: # recieved joystick information (throttle, steering)
-						steering = self.transform(data[1], 1000, 2000, -1.0, 1.0)
-						throttle = self.transform(data[2], 1000, 2000, -1.0, 1.0)
-						sys.stdout.write(str(steering))
-						sys.stdout.write(" ")
-						print throttle
-						maxSm = 35
-						maxSp = 220
-						maxMove = 220
-						minMove = 0
-						sm = self.transform(abs(steering), 0, 1, 0, maxSm)
-						sp = self.transform(abs(steering), 0, 1, 0, maxSp)
-						t = self.transform(abs(throttle), 0, 1, minMove, maxMove)
-						L = t
-						R = t
-						end = 1500
-						if throttle < 0:
-							if steering < 0:
-								L += sm
-								R -= sp
-							else:
-								L -= sp
-								R += sm
-							end = 2000
-						else:
-							if steering < 0:
-								L -= sp
-								R += sm
-							else:
-								L += sm
-								R -= sp
-							end = 1000
-						mL = self.transform(self.clampToRange(L, 0, 255), 0, 255, 1500, end)
-						mR = self.transform(self.clampToRange(R, 0, 255), 0, 255, 1500, end)
-					self.driveMotors(mL, mR)
+						self.steeringThrottle(data)# this calls changeMotorVals()
 				self.lastQueue = time.time()
 
-	def driveMotors(self, mL, mR):
+	# this sets up the values used to drive the motors 
+	# it does not drive the motor because this function is tied to the queue
+	# and only gets executed when something is in the queue
+	# yet we want the motors to be constantly receiving contol information
+	# 1000 <= mL,mR <= 2000, 1500 means the wheels wont turn
+	def changeMotorVals(self, mL, mR):
 		if mL > 1500:
 			self.direction[self.LEFT] = 1
-			self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 2000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.LEFT] = clampToRange(transform(mL, 1500, 2000, 0, 100), 0, self.maxDC)
 		else:
 			self.direction[self.LEFT] = 0
-			self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 1000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.LEFT] = clampToRange(transform(mL, 1500, 1000, 0, 100), 0, self.maxDC)
 		if self.mPowers[self.LEFT] < self.minDC:
 			self.mPowers[self.LEFT] = 0
 		if mR > 1500:
 			self.direction[self.RIGHT] = 0
-			self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 2000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.RIGHT] = clampToRange(transform(mR, 1500, 2000, 0, 100), 0, self.maxDC)
 		else :
 			self.direction[self.RIGHT] = 1
-			self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 1000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.RIGHT] = clampToRange(transform(mR, 1500, 1000, 0, 100), 0, self.maxDC)
 		if self.mPowers[self.RIGHT] < self.minDC:
 			self.mPowers[self.RIGHT] = 0
 
+	def handleEncoderQueues(self):
+		while not self.encQueue.empty():
+			good = True
+			try: 
+				# nowait because this process was called from the main loop which controls the motors
+				# so we don't want this function to block.
+				data = self.encQueue.get_nowait()
+			except Queue.Empty as msg:
+				# realistically this should never happen because we check to see that the queue is not empty
+				# but it is shared memory, and who knows?
+				good = False
+			if good:
+				pass
+
+	# check to see if the process should stop
 	def checkIfShouldStop(self):
 		if self.pipe.poll():
 			data = self.pipe.recv()
@@ -194,12 +213,12 @@ class MotorController(Process):
 			while self.go:
 			#	print self.mPowers
 			#	print self.direction
-				self.handleQueues()
+				self.handleControllerQueue()
+				self.handleEncoderQueues()
 				self.setDC()
 				#TODO handle queue info which has encoder stuff in it
 				self.checkIfShouldStop()
 				time.sleep(.01)
 			self.exitGracefully()
 		except Exception as msg:
-			print "MotorController"
 			print msg
