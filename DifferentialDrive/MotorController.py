@@ -100,13 +100,16 @@ class MotorController(Process):
 	def steeringThrottle(self, data):
 		steering = data[1]
 		throttle = data[2]
+		sys.stdout.write(str(steering))
+		sys.stdout.write(" ")
+		sys.stdout.write(str(throttle))
 		maxSm = 35
 		maxSp = 220
 		maxMove = 220
 		minMove = 0
 		sm = util.transform(abs(steering), 0, 1, 0, maxSm)
 		sp = util.transform(abs(steering), 0, 1, 0, maxSp)
-		t = util.transform(abs(throttle), 0, 1, self.minMove, self.maxMove)
+		t = util.transform(abs(throttle), 0, 1, minMove, maxMove)
 		L = t
 		R = t
 		end = 1500
@@ -128,6 +131,9 @@ class MotorController(Process):
 			end = 1000
 		mL = util.transform(util.clampToRange(L, 0, 255), 0, 255, 1500, end)
 		mR = util.transform(util.clampToRange(R, 0, 255), 0, 255, 1500, end)
+		sys.stdout.write(str(mL))
+		sys.stdout.write(" ")
+		print mR
 		self.changeMotorVals(mL, mR)
 
 	# this function will consume the controllerQueue, which was filled by DDMCServer
