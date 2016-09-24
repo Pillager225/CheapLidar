@@ -121,28 +121,62 @@ class MotorController(Process):
 				except Queue.Empty as msg:
 					good = False
 				if good:
-					if data[0] == 1: # recieved motor level commands
+					mL = 1500
+					mR = 1500
+					if data[0] == 1 or data[0] == 3: # recieved motor level commands
 						mL = data[1]
 						mR = data[2]
-						if mL > 1500:
-							self.direction[self.LEFT] = 1
-							self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 2000, 0, 100), 0, self.maxDC)
-						else:
-							self.direction[self.LEFT] = 0
-							self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 1000, 0, 100), 0, self.maxDC)
-						if self.mPowers[self.LEFT] < self.minDC:
-							self.mPowers[self.LEFT] = 0
-						if mR > 1500:
-							self.direction[self.RIGHT] = 0
-							self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 2000, 0, 100), 0, self.maxDC)
-						else :
-							self.direction[self.RIGHT] = 1
-							self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 1000, 0, 100), 0, self.maxDC)
-						if self.mPowers[self.RIGHT] < self.minDC:
-							self.mPowers[self.RIGHT] = 0
 					elif data[0] == 2: # recieved joystick information (throttle, steering)
-						pass
+						steering = data[1]
+						throttle = data[2]
+						maxSm = 35
+						maxSp = 220
+						maxMove = 220
+						minMove = 0
+						sm = self.transform(abs(steering), 0, 1, 0, maxSm)
+						sp = self.transform(abs(steering), 0, 1, 0, maxSp)
+						t = self.transform(abs(throttle), 0, 1, self.minMove, self.maxMove)
+						L = t
+						R = t
+						end = 1500
+						if throttle < 0:
+							if steering < 0:
+								L += sm
+								R -= sp
+							else:
+								L -= sp
+								R += sm
+							end = 2000
+						else:
+							if steering < 0:
+								L -= sp
+								R += sm
+							else:
+								L += sm
+								R -= sp
+							end = 1500
+						mL = self.transform(self.clampToRange(L, 0, 255), 0, 255, 1500, end)
+						mR = self.transform(self.clampToRange(R, 0, 255), 0, 255, 1500, end)
+					self.driveMotors(mL, mR)
 				self.lastQueue = time.time()
+
+	def driveMotors(self, mL, mR):
+		if mL > 1500:
+			self.direction[self.LEFT] = 1
+			self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 2000, 0, 100), 0, self.maxDC)
+		else:
+			self.direction[self.LEFT] = 0
+			self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 1000, 0, 100), 0, self.maxDC)
+		if self.mPowers[self.LEFT] < self.minDC:
+			self.mPowers[self.LEFT] = 0
+		if mR > 1500:
+			self.direction[self.RIGHT] = 0
+			self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 2000, 0, 100), 0, self.maxDC)
+		else :
+			self.direction[self.RIGHT] = 1
+			self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 1000, 0, 100), 0, self.maxDC)
+		if self.mPowers[self.RIGHT] < self.minDC:
+			self.mPowers[self.RIGHT] = 0
 
 	def checkIfShouldStop(self):
 		if self.pipe.poll():
