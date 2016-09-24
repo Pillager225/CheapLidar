@@ -110,6 +110,7 @@ class MotorController(Process):
 		L = t
 		R = t
 		end = 1500
+		print throttle
 		if throttle < 0:
 			if steering < 0:
 				L += sm
