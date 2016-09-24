@@ -62,7 +62,7 @@ class DDMCServer(Process):
     			self.waitForConnection()
 
     	def handleData(self):
-			try:
+		try:
     			data = self.clientsocket.recv(12)
 			if len(data) == 0:
 				self.resetClient()
@@ -71,11 +71,11 @@ class DDMCServer(Process):
 					struct.unpack('i', data[0:4])[0], # control scheme
 					struct.unpack('i', data[4:8])[0], # left motor 
 					struct.unpack('i', data[8:12])[0]]) # right motor power
-			except Exception as msg:
-				if "Errno 104" in msg:
-					self.resetClient()
-				else:
-					print msg
+		except Exception as msg:
+			if "Errno 104" in msg:
+				self.resetClient()
+			elif "length 4" in msg:
+				return None
 
 	def checkIfShouldStop(self):
 		if self.pipe.poll():

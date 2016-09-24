@@ -50,6 +50,7 @@ class MotorController(Process):
 
 	def setupPins(self):
 		GPIO.setmode(GPIO.BOARD)
+		GPIO.setwarnings(False)
 		for i in range(0, 2):
 			GPIO.setup(self.pwmPin[i], GPIO.OUT)
 			for j in range(0, 2):
@@ -83,7 +84,7 @@ class MotorController(Process):
 		for i in range(0 ,2):
 			self.setDirections()
 		for i in range(0, 2):
-			if power[i] == 0:
+			if self.mPowers[i] == 0:
 				self.pwmObj[i].stop()
 				self.pwmStarted[i] = False
 			else:
@@ -112,7 +113,6 @@ class MotorController(Process):
 			self.direction = [0, 0]
 			self.mPowers = [0, 0]
 			self.lastQueue = time.time()
-			print "powers reset"
 		else:
 			while not self.controllerQueue.empty():
 				good = True
@@ -126,16 +126,20 @@ class MotorController(Process):
 						mR = data[2]
 						if mL > 1500:
 							self.direction[self.LEFT] = 1
-							self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 2000, 0, 100), minDC, maxDC)
+							self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 2000, 0, 100), 0, self.maxDC)
 						else:
 							self.direction[self.LEFT] = 0
-							self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 1000, 0, 100), minDC, maxDC)
+							self.mPowers[self.LEFT] = self.clampToRange(self.transform(mL, 1500, 1000, 0, 100), 0, self.maxDC)
+						if self.mPowers[self.LEFT] < self.minDC:
+							self.mPowers[self.LEFT] = 0
 						if mR > 1500:
 							self.direction[self.RIGHT] = 0
-							self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 2000, 0, 100), minDC, maxDC)
+							self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 2000, 0, 100), 0, self.maxDC)
 						else :
 							self.direction[self.RIGHT] = 1
-							self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 1000, 0, 100), minDC, maxDC)
+							self.mPowers[self.RIGHT] = self.clampToRange(self.transform(mR, 1500, 1000, 0, 100), 0, self.maxDC)
+						if self.mPowers[self.RIGHT] < self.minDC:
+							self.mPowers[self.RIGHT] = 0
 					elif data[0] == 2: # recieved joystick information (throttle, steering)
 						pass
 				self.lastQueue = time.time()
