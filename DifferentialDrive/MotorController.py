@@ -100,7 +100,7 @@ class MotorController(Process):
             return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 
-	def endGracefully(self):
+	def exitGracefully(self):
 		for i in range(0, 2):
 			if self.pwmObj[i]:
 				self.pwmObj[i].ChangeDutyCycle(0)
@@ -162,6 +162,6 @@ class MotorController(Process):
 				#TODO handle queue info which has encoder stuff in it
 				self.checkIfShouldStop()
 				time.sleep(.01)
-			self.endGracefully()
+			self.exitGracefully()
 		except Exception as msg:
 			print msg

@@ -18,12 +18,17 @@ from DDMCServer import DDMCServer
 from Encoder import Encoder
 
 class DDStarter:
-	# class that controls motors
-	manager = None
+	# encQueue in makeClasses() is filled by both Lencoder and Rencoder, and is consumed by motorController
+	#	the array in encQueue is of the form [pin, count, timeSinceLast]
+	# controllerQueue in makeClasses is filled by DDMCServer, and is consumed by motorController
+	#	commands in the queue come from a DDMCClient
+	# a manager creates Queues that are safe to share between processes
 	motorController = None
+	# Differential Drive Motor Controller (DDMC)
 	controlServer = None
 	Lencoder = None
 	Rencoder = None
+	# pipes are used to terminate processes
 	ePipeLeft = None
 	ePipeRight = None
 	motorPipe = None

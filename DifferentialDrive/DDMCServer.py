@@ -74,8 +74,7 @@ class DDMCServer(Process):
 		except Exception as msg:
 			if "Errno 104" in msg:
 				self.resetClient()
-			elif "length 4" in msg:
-				return None
+			
 
 	def checkIfShouldStop(self):
 		if self.pipe.poll():
