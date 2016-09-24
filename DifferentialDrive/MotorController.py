@@ -104,9 +104,9 @@ class MotorController(Process):
 		maxSp = 220
 		maxMove = 220
 		minMove = 0
-		sm = transform(abs(steering), 0, 1, 0, maxSm)
-		sp = transform(abs(steering), 0, 1, 0, maxSp)
-		t = transform(abs(throttle), 0, 1, self.minMove, self.maxMove)
+		sm = util.transform(abs(steering), 0, 1, 0, maxSm)
+		sp = util.transform(abs(steering), 0, 1, 0, maxSp)
+		t = util.transform(abs(throttle), 0, 1, self.minMove, self.maxMove)
 		L = t
 		R = t
 		end = 1500
@@ -126,8 +126,8 @@ class MotorController(Process):
 				L += sm
 				R -= sp
 			end = 1000
-		mL = transform(clampToRange(L, 0, 255), 0, 255, 1500, end)
-		mR = transform(clampToRange(R, 0, 255), 0, 255, 1500, end)
+		mL = util.transform(util.clampToRange(L, 0, 255), 0, 255, 1500, end)
+		mR = util.transform(util.clampToRange(R, 0, 255), 0, 255, 1500, end)
 		self.changeMotorVals(mL, mR)
 
 	# this function will consume the controllerQueue, which was filled by DDMCServer
@@ -170,18 +170,18 @@ class MotorController(Process):
 	def changeMotorVals(self, mL, mR):
 		if mL > 1500:
 			self.direction[self.LEFT] = 1
-			self.mPowers[self.LEFT] = clampToRange(transform(mL, 1500, 2000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 2000, 0, 100), 0, self.maxDC)
 		else:
 			self.direction[self.LEFT] = 0
-			self.mPowers[self.LEFT] = clampToRange(transform(mL, 1500, 1000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 1000, 0, 100), 0, self.maxDC)
 		if self.mPowers[self.LEFT] < self.minDC:
 			self.mPowers[self.LEFT] = 0
 		if mR > 1500:
 			self.direction[self.RIGHT] = 0
-			self.mPowers[self.RIGHT] = clampToRange(transform(mR, 1500, 2000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 2000, 0, 100), 0, self.maxDC)
 		else :
 			self.direction[self.RIGHT] = 1
-			self.mPowers[self.RIGHT] = clampToRange(transform(mR, 1500, 1000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 1000, 0, 100), 0, self.maxDC)
 		if self.mPowers[self.RIGHT] < self.minDC:
 			self.mPowers[self.RIGHT] = 0
 
