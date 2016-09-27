@@ -6,6 +6,7 @@
 import RPi.GPIO as GPIO
 import time
 import sys
+import math
 
 from multiprocessing import Process
 from multiprocessing import Queue
@@ -19,6 +20,11 @@ class MotorController(Process):
 	TANK = 3
 	VELOCITY_HEADING = 4
 	state = STEERING_THROTTLE_OFFBOARD
+
+	TURNING = 0
+	DRIVING = 1
+	# velocity heading state
+	vhState = TURNING
 
 	LEFT = 0
 	RIGHT = 1
@@ -111,6 +117,7 @@ class MotorController(Process):
 			self.mPowers[i] = 0
 		else:
 			 # TODO experimenal, play with minDC, and minVel because maxVel was observerd at maxDC
+			 # TODO PID control this
 			self.mPowers[i] = util.transform(vel, util.minVel, util.maxVel, self.minDC, self.maxDC)
 		self.setDC()
 
@@ -190,8 +197,10 @@ class MotorController(Process):
 						self.steeringThrottle(data)# this calls changeMotorVals()
 					elif data[0] == self.VELOCITY_HEADING:
 						self.state = data[0]
+						self.vhState = self.TURNING
 						self.desiredVel = data[1]
 						self.desiredHeading = data[2]
+						self.goToHeading(self.desiredHeading)
 				self.lastQueue = time.time()
 
 	# this sets up the values used to drive the motors 
@@ -221,8 +230,19 @@ class MotorController(Process):
 
 		if self.state != self.VELOCITY_HEADING:
 			self.setDC()
+
+	def goToHeading(self, h):
+		angDiff = h-self.currentHeading
+		if angDiff > math.pi:
+			angDiff = abs(angDiff-2*math.pi)
+			self.direction = [1, 0]
 		else:
-			self.setDCByVel(self.desiredVel)
+			self.direction = [0, 1]
+										#	2pi/2	(2*math.pi*util.botWidth/2)/2
+		dist = angDiff*util.botWidth/2
+		self.requiredCounts = round(dist/util.distPerBlip)
+		self.mPowers = [75, 75]
+		self.setDC()
 
 	def handleEncoderQueues(self):	#TODO
 		while not self.encQueue.empty():	
@@ -236,16 +256,23 @@ class MotorController(Process):
 				# but it is shared memory, and who knows?
 				good = False
 			if good:
-				pass
+				if self.vhState == self.TURNING:
+					# note, does not check which motor moved the desired amount, possible change this
+					if data[1] >= self.requiredCounts:
+						self.vhState = self.DRIVING
+						self.mPowers[0, 0]
+						self.setDC()
+				else:
+					# TODO PID control to make encoder counts stay the same, and at right speed
+					self.setDCByVel(self.desiredVel)
 
 	# check to see if the process should stop
 	def checkIfShouldStop(self):
-		data = None
 		if self.pipe.poll():
 			data = self.pipe.recv()
-		if (not data == None) and 'stop' in data:
-			self.go = False
-			self.pipe.close()
+			if (not data == None) and 'stop' in data:
+				self.go = False
+				self.pipe.close()
 
 	def run(self):
 		self.go = True

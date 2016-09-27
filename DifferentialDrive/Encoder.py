@@ -55,7 +55,7 @@ class Encoder(Process):
 		self.go = True
 		while self.go:
 			starttime = time.time()
-			val = GPIO.wait_for_edge(self.pin, GPIO.BOTH, timeout=500)
+			val = GPIO.wait_for_edge(self.pin, GPIO.BOTH, timeout=100)
 			if val is None:		#Stall occured
 				#TODO handle stall
 				self.count = 0
