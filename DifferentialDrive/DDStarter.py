@@ -58,8 +58,8 @@ class DDStarter:
 		self.Rencoder = Encoder(queue=encQueue, pin=12, pipe=eRight)
 
 	def startProcesses(self):
-		self.Lencoder.start()
-		self.Rencoder.start()
+		#self.Lencoder.start()
+		#self.Rencoder.start()
 		self.motorController.start()
 		self.controlServer.start()
 

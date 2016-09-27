@@ -32,7 +32,7 @@ class MotorController(Process):
 	pwmStarted = [False, False]
 	freq = 60#Hertz
 	maxDC = 100
-	minDC = 25
+	minDC = 20
 	mPowers = [0, 0]
 	direction = [0, 0]	# forward or backward
 	# set by time.time(), used to stop bot when dced
@@ -107,7 +107,7 @@ class MotorController(Process):
 			self.direction = [1, 1]
 		if abs(vel) > util.maxVel:
 			self.mPowers[i] = maxDC
-		elif abs(vel) < util.minVel
+		elif abs(vel) < util.minVel:
 			self.mPowers[i] = 0
 		else:
 			 # TODO experimenal, play with minDC, and minVel because maxVel was observerd at maxDC
@@ -159,6 +159,7 @@ class MotorController(Process):
 	# and will change the motors powers and directions according to what was in the queue
 	# it also will monitor that the bot is still receiving commands, and if it isn't, it will stop the bot
 	def handleControllerQueue(self):
+		print self.state
 		# if there hasn't been anything in the queue in half a second
 		if time.time()-self.lastQueue > .5 and self.controllerQueue.empty():
 			# stop the bot
@@ -201,19 +202,24 @@ class MotorController(Process):
 	def changeMotorVals(self, mL, mR):
 		if mL > 1500:
 			self.direction[self.LEFT] = 1
-			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 2000, 0, 100), self.minDC, self.maxDC)
+			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 2000, 0, 100), self.minDC-1, self.maxDC)
 		else:
 			self.direction[self.LEFT] = 0
-			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 1000, 0, 100), self.minDC, self.maxDC)
+			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 1000, 0, 100), self.minDC-1, self.maxDC)
+		if self.mPowers[self.LEFT] < self.minDC:
+			self.mPowers[self.LEFT] = 0
 
 		if mR > 1500:
 			self.direction[self.RIGHT] = 0
-			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 2000, 0, 100), self.minDC, self.maxDC)
+			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 2000, 0, 100), self.minDC-1, self.maxDC)
 		else :
 			self.direction[self.RIGHT] = 1
-			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 1000, 0, 100), self.minDC, self.maxDC)
+			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 1000, 0, 100), self.minDC-1, self.maxDC)
+		if self.mPowers[self.RIGHT] < self.minDC:
+			self.mPowers[self.RIGHT] = 0
+		print self.mPowers
 
-		if self.state != VELOCITY_HEADING:
+		if self.state != self.VELOCITY_HEADING:
 			self.setDC()
 		else:
 			self.setDCByVel(self.desiredVel)
@@ -234,11 +240,12 @@ class MotorController(Process):
 
 	# check to see if the process should stop
 	def checkIfShouldStop(self):
+		data = None
 		if self.pipe.poll():
 			data = self.pipe.recv()
-			if 'stop' in data:
-				self.go = False
-				self.pipe.close()
+		if (not data == None) and 'stop' in data:
+			self.go = False
+			self.pipe.close()
 
 	def run(self):
 		self.go = True
@@ -247,9 +254,10 @@ class MotorController(Process):
 			#	print self.mPowers
 			#	print self.direction
 				self.handleControllerQueue()
-				self.handleEncoderQueues()
+			#	self.handleEncoderQueues()
 				self.checkIfShouldStop()
 				time.sleep(.01)
 			self.exitGracefully()
 		except Exception as msg:
 			print msg
+#!/usr/bin/env python

@@ -69,6 +69,7 @@ class Encoder(Process):
 					self.periodIndex += 1	
 			self.driverQueue.put([self.pin ,self.count, self.getAveragePeriodBetweenBlips()])
 			self.checkIfShouldStop()
+			print "gggg"
 		GPIO.cleanup()
 
 if __name__ == '__main__':
