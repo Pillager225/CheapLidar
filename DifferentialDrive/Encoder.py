@@ -3,10 +3,10 @@ import time
 from multiprocessing import Process
 from multiprocessing import Pipe
 from multiprocessing import Queue
-#pin should be 11 or 12 #GPIO17,GPIO18
 
 class Encoder(Process):
 	pin = None 
+	#pin should be 11 or 12 #GPIO17,GPIO18
 	count = 0
 	# will only put things into the queue
 	driverQueue = None
@@ -19,6 +19,7 @@ class Encoder(Process):
 	diameterOfWheel = 65.087 # millimeters
 	circumferenceOfWheel = 204.476841044199 # millimeters
 	stateChangesPerRevolution = 40 # there are 20 slots, but 40 state changes
+	distPerBlip = 5.11192102610497 # millimeters
 
 	def __init__(self, *args, **kwargs):
 		super(Encoder, self).__init__()
@@ -52,18 +53,6 @@ class Encoder(Process):
 				ave += self.periods[i]
 		return ave/self.pSize
 
-	def testingCode(self):
-		GPIO.setmode(GPIO.BOARD)
-		GPIO.setwarnings(False)
-		print "derp"
-		GPIO.setup(35, GPIO.OUT)
-		GPIO.setup(33, GPIO.OUT)
-		GPIO.setup(37, GPIO.OUT)
-		GPIO.output(35, GPIO.LOW)
-		GPIO.output(33, GPIO.HIGH)
-		pwmObj = GPIO.PWM(37, 60)
-		pwmObj.start(70)
-
 	def run(self):
 		self.go = True
 		while self.go:
@@ -89,7 +78,6 @@ if __name__ == '__main__':
 	control_pipe, enc_pipe = Pipe()
 	e = Encoder(queue=driver_queue, pipe=enc_pipe, pin=11)
 	e.start()
-	e.testingCode()
 	while True:
 		while not driver_queue.empty():
 			good = True
