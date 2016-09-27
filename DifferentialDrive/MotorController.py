@@ -56,7 +56,7 @@ class MotorController(Process):
 		for i in range(0, 2):
 			GPIO.setup(self.pwmPin[i], GPIO.OUT)
 			for j in range(0, 2):
-				GPIO.setup(self.dirPin[j][i], GPIO.OUT)
+				GPIO.setup(self.dirPin[i][j], GPIO.OUT)
 
 	def initializePWM(self):
 		for i in range(0 ,2):
