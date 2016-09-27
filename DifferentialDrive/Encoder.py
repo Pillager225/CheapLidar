@@ -1,6 +1,7 @@
 import RPi.GPIO as GPIO
 import time
 from multiprocessing import Process
+from multiprocessing import Pipe
 from multiprocessing import Queue
 #pin should be 11 or 12 #GPIO17,GPIO18
 
@@ -39,28 +40,29 @@ class Encoder(Process):
 				self.pipe.close()
 
 	def resetPeriod(self):
-		self.periods = [0]*10
+		self.periods = [-1]*self.pSize
 		self.periodIndex = 0
 
 	def getAveragePeriodBetweenBlips(self):
 		ave = 0.0
-		for i in range(0, pSize):
-			if periods[i] == -1:
+		for i in range(0, self.pSize):
+			if self.periods[i] == -1:
 				break
 			else:
-				ave += periods[i]
-		return ave/pSize
+				ave += self.periods[i]
+		return ave/self.pSize
 
 	def testingCode(self):
 		GPIO.setmode(GPIO.BOARD)
 		GPIO.setwarnings(False)
-		GPIO.setup(31, GPIO.OUT)
-		GPIO.setup(32, GPIO.OUT)
-		GPIO.setup(38, GPIO.OUT)
-		GPIO.output(31, GPIO.LOW)
-		GPIO.output(32, GPIO.HIGH)
-		pwmObj = GPIO.PWM(38, 60)
-		pwmObj.start(50)
+		print "derp"
+		GPIO.setup(35, GPIO.OUT)
+		GPIO.setup(33, GPIO.OUT)
+		GPIO.setup(37, GPIO.OUT)
+		GPIO.output(35, GPIO.LOW)
+		GPIO.output(33, GPIO.HIGH)
+		pwmObj = GPIO.PWM(37, 60)
+		pwmObj.start(70)
 
 	def run(self):
 		self.go = True
@@ -70,13 +72,14 @@ class Encoder(Process):
 			if val is None:		#Stall occured
 				#TODO handle stall
 				self.count = 0
+				self.resetPeriod()
 			else:
 				self.count += 1
-			periods[periodIndex] = time.time()-starttime
-			if periodIndex+1 == pSize:
-				periodIndex = 0
-			else:
-				periodIndex += 1
+				self.periods[self.periodIndex] = time.time()-starttime
+				if self.periodIndex+1 == self.pSize:
+					self.periodIndex = 0
+				else:
+					self.periodIndex += 1	
 			self.driverQueue.put([self.pin ,self.count, self.getAveragePeriodBetweenBlips()])
 			self.checkIfShouldStop()
 		GPIO.cleanup()
@@ -85,8 +88,8 @@ if __name__ == '__main__':
 	driver_queue = Queue()
 	control_pipe, enc_pipe = Pipe()
 	e = Encoder(queue=driver_queue, pipe=enc_pipe, pin=11)
-	e.testingCode()
 	e.start()
+	e.testingCode()
 	while True:
 		while not driver_queue.empty():
 			good = True

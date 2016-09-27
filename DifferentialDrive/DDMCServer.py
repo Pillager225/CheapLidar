@@ -90,7 +90,7 @@ class DDMCServer(Process):
 			self.handleData()
 			self.checkIfShouldStop()
 			time.sleep(.01)
-    	self.closeConnections()
+	    	self.closeConnections()
 
 	def closeConnections(self):
 		self.resetClient(False)
