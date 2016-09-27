@@ -14,6 +14,12 @@ from multiprocessing import Pipe
 import util
 
 class MotorController(Process):
+	STEERING_THROTTLE_OFFBOARD = 1
+	STEERING_THROTTLE_ONBOARD = 2
+	TANK = 3
+	VELOCITY_HEADING = 4
+	state = STEERING_THROTTLE_OFFBOARD
+
 	LEFT = 0
 	RIGHT = 1
 
@@ -38,6 +44,10 @@ class MotorController(Process):
 	# used to shut the process down
 	pipe = None
 
+	desiredHeading = 0
+	desiredVel = 0
+	currentHeading = 0
+
 	def __init__(self, *args, **kwargs):
 		super(MotorController, self).__init__()
 		for key in kwargs:
@@ -60,12 +70,12 @@ class MotorController(Process):
 
 	def initializePWM(self):
 		for i in range(0 ,2):
-			self.setDirections()
+			self.setDirectionPins()
 		for i in range(0, 2):
 			self.pwmObj[i] = GPIO.PWM(self.pwmPin[i], self.freq)
 			self.pwmStarted[i] = False
 
-	def setDirections(self):
+	def setDirectionPins(self):
 		for i in range(0, 2):
 			if self.direction[i]:
 				GPIO.output(self.dirPin[i][0], GPIO.HIGH)
@@ -77,7 +87,7 @@ class MotorController(Process):
 	# set PWM duty cycle
 	def setDC(self):
 		for i in range(0 ,2):
-			self.setDirections()
+			self.setDirectionPins()
 		for i in range(0, 2):
 			if self.mPowers[i] == 0:
 				self.pwmObj[i].stop()
@@ -88,6 +98,21 @@ class MotorController(Process):
 				else:
 					self.pwmObj[i].start(self.mPowers[i])
 					self.pwmStarted[i] = True
+
+	# vel in m/s
+	def setDCByVel(self, vel):
+		if vel > 0:
+			self.direction = [0, 0]
+		else:
+			self.direction = [1, 1]
+		if abs(vel) > util.maxVel:
+			self.mPowers[i] = maxDC
+		elif abs(vel) < util.minVel
+			self.mPowers[i] = 0
+		else:
+			 # TODO experimenal, play with minDC, and minVel because maxVel was observerd at maxDC
+			self.mPowers[i] = util.transform(vel, util.minVel, util.maxVel, self.minDC, self.maxDC)
+		self.setDC()
 
 	def exitGracefully(self):
 		for i in range(0, 2):
@@ -154,12 +179,18 @@ class MotorController(Process):
 				if good:
 					mL = 1500
 					mR = 1500
-					if data[0] == 1 or data[0] == 3: # recieved motor level commands
+					if data[0] == self.STEERING_THROTTLE_OFFBOARD or data[0] == self.TANK: # recieved motor level commands
+						self.state = data[0]
 						mL = data[1]
 						mR = data[2]
 						self.changeMotorVals(mL, mR)
-					elif data[0] == 2: # recieved joystick information (throttle, steering)
+					elif data[0] == self.STEERING_THROTTLE_ONBOARD: # recieved joystick information (throttle, steering)
+						self.state = data[0]
 						self.steeringThrottle(data)# this calls changeMotorVals()
+					elif data[0] == self.VELOCITY_HEADING:
+						self.state = data[0]
+						self.desiredVel = data[1]
+						self.desiredHeading = data[2]
 				self.lastQueue = time.time()
 
 	# this sets up the values used to drive the motors 
@@ -170,23 +201,25 @@ class MotorController(Process):
 	def changeMotorVals(self, mL, mR):
 		if mL > 1500:
 			self.direction[self.LEFT] = 1
-			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 2000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 2000, 0, 100), self.minDC, self.maxDC)
 		else:
 			self.direction[self.LEFT] = 0
-			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 1000, 0, 100), 0, self.maxDC)
-		if self.mPowers[self.LEFT] < self.minDC:
-			self.mPowers[self.LEFT] = 0
+			self.mPowers[self.LEFT] = util.clampToRange(util.transform(mL, 1500, 1000, 0, 100), self.minDC, self.maxDC)
+
 		if mR > 1500:
 			self.direction[self.RIGHT] = 0
-			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 2000, 0, 100), 0, self.maxDC)
+			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 2000, 0, 100), self.minDC, self.maxDC)
 		else :
 			self.direction[self.RIGHT] = 1
-			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 1000, 0, 100), 0, self.maxDC)
-		if self.mPowers[self.RIGHT] < self.minDC:
-			self.mPowers[self.RIGHT] = 0
+			self.mPowers[self.RIGHT] = util.clampToRange(util.transform(mR, 1500, 1000, 0, 100), self.minDC, self.maxDC)
 
-	def handleEncoderQueues(self):
-		while not self.encQueue.empty():
+		if self.state != VELOCITY_HEADING:
+			self.setDC()
+		else:
+			self.setDCByVel(self.desiredVel)
+
+	def handleEncoderQueues(self):	#TODO
+		while not self.encQueue.empty():	
 			good = True
 			try: 
 				# nowait because this process was called from the main loop which controls the motors
@@ -215,8 +248,6 @@ class MotorController(Process):
 			#	print self.direction
 				self.handleControllerQueue()
 				self.handleEncoderQueues()
-				self.setDC()
-				#TODO handle queue info which has encoder stuff in it
 				self.checkIfShouldStop()
 				time.sleep(.01)
 			self.exitGracefully()

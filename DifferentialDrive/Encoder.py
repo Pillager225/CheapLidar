@@ -4,6 +4,8 @@ from multiprocessing import Process
 from multiprocessing import Pipe
 from multiprocessing import Queue
 
+# the fastest I have seen it move is 0.511192102610497 m/s
+
 class Encoder(Process):
 	pin = None 
 	#pin should be 11 or 12 #GPIO17,GPIO18
@@ -16,10 +18,6 @@ class Encoder(Process):
 	pSize = 10
 	periods = [-1.0]*pSize
 	periodIndex = 0
-	diameterOfWheel = 65.087 # millimeters
-	circumferenceOfWheel = 204.476841044199 # millimeters
-	stateChangesPerRevolution = 40 # there are 20 slots, but 40 state changes
-	distPerBlip = 5.11192102610497 # millimeters
 
 	def __init__(self, *args, **kwargs):
 		super(Encoder, self).__init__()
