@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
 from ADCCommunicator import ADCCommunicator
+import subprocess
 import time
+import sys
+
+# 5v is 188, danger zone below 195
 
 class BatteryMonitor:
 	adc = None
@@ -13,10 +17,10 @@ class BatteryMonitor:
 	def main(self):
 		while(True): 
 			bat = self.adc.askADC(1)
-			print bat
-			time.sleep(1)
+			if bat <= 195:
+				subprocess.call(['sudo', 'shutdown', '-h', 'now'])
+				sys.exit(0)	
+			time.sleep(5)
 		
-		#TODO map voltages to adc values and monitor voltage so that if it dips too low, rpi will shut off
-
 if __name__ == '__main__':
 	bc = BatteryMonitor()
